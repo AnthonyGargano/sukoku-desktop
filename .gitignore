@@ -1,0 +1,21 @@
+﻿# Go
+bin/
+*.exe
+*.exe~
+*.test
+*.out
+
+# Fyne build artifacts
+fyne-*
+*.app
+*.dmg
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# App data
+logs/
+sudoku_scores.json
