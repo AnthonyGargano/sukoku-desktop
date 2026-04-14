@@ -787,7 +787,9 @@ func (s *AppState) stopTimer() {
 
 func BuildAndRun() {
 	a := app.New()
+	a.SetIcon(resourceIconPng) // sets taskbar / dock icon
 	w := a.NewWindow("Sudoku")
+	w.SetIcon(resourceIconPng) // sets window title-bar icon
 
 	state := NewAppState(a, w)
 	content := state.Build()

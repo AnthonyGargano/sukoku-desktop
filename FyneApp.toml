@@ -5,4 +5,4 @@ Website = "https://github.com/AnthonyGargano/sukoku-desktop"
   Name = "Sudoku"
   ID = "com.anthonygargano.sudoku"
   Version = "1.0.0"
-  Build = 3
+  Build = 5
