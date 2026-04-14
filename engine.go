@@ -2,7 +2,6 @@ package main
 
 import (
 	"math/rand"
-	"time"
 )
 
 const size = 9
@@ -130,4 +129,3 @@ func MakeUniquePuzzle(targetClues int) (puzzle Grid, solution Grid) {
 	}
 }
 
-func init() { rand.Seed(time.Now().UnixNano()) }

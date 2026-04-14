@@ -2,6 +2,7 @@ package main
 
 import (
 	"image/color"
+	"math/rand"
 	"strconv"
 	"time"
 
@@ -316,12 +317,12 @@ func (s *AppState) buildBoard() {
 			makeNote(1, x0, y0)
 			makeNote(2, x0+wc/2-nw/2, y0)
 			makeNote(3, x0+wc-nw, y0)
-			makeNote(4, x0+wc-nw, y0+hc/2-nh/2)
-			makeNote(5, x0+wc-nw, y0+hc-nh)
-			makeNote(6, x0+wc/2-nw/2, y0+hc-nh)
+			makeNote(4, x0, y0+hc/2-nh/2)
+			makeNote(5, cx, cy)
+			makeNote(6, x0+wc-nw, y0+hc/2-nh/2)
 			makeNote(7, x0, y0+hc-nh)
-			makeNote(8, x0, y0+hc/2-nh/2)
-			makeNote(9, cx, cy)
+			makeNote(8, x0+wc/2-nw/2, y0+hc-nh)
+			makeNote(9, x0+wc-nw, y0+hc-nh)
 
 			row[c] = cl
 		}
@@ -568,21 +569,28 @@ func (s *AppState) onHint() {
 		dialog.ShowInformation("Hint", reason+"\nSuggested value: "+strconv.Itoa(vv), s.win)
 		return
 	}
-	// fallback: reveal one correct cell
+	// fallback: reveal one correct cell randomly
+	type coord struct{ r, c int }
+	var empties []coord
 	for r := 0; r < size; r++ {
 		for c := 0; c < size; c++ {
 			if s.cells[r][c].value == 0 {
-				s.selected = s.cells[r][c]
-				s.refreshHighlights()
-				answer := s.solution[r][c]
-				s.hintsLeft--
-				s.btnHint.SetText("Hint (" + strconv.Itoa(s.hintsLeft) + ")")
-				dialog.ShowInformation("Hint",
-					"Consider row "+strconv.Itoa(r+1)+", col "+strconv.Itoa(c+1)+
-						".\nThe correct number here is "+strconv.Itoa(answer)+".", s.win)
-				return
+				empties = append(empties, coord{r, c})
 			}
 		}
+	}
+	if len(empties) > 0 {
+		idx := rand.Intn(len(empties))
+		r, c := empties[idx].r, empties[idx].c
+		s.selected = s.cells[r][c]
+		s.refreshHighlights()
+		answer := s.solution[r][c]
+		s.hintsLeft--
+		s.btnHint.SetText("Hint (" + strconv.Itoa(s.hintsLeft) + ")")
+		dialog.ShowInformation("Hint",
+			"Consider row "+strconv.Itoa(r+1)+", col "+strconv.Itoa(c+1)+
+				".\nThe correct number here is "+strconv.Itoa(answer)+".", s.win)
+		return
 	}
 	dialog.ShowInformation("Hint", "Board already complete.", s.win)
 }
