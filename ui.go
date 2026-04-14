@@ -109,17 +109,21 @@ type AppState struct {
 	boardSize fyne.Size
 
 	// colors (re-applied in setTheme)
-	bgWhite    color.NRGBA
-	hlRowCol   color.NRGBA
-	hlSame     color.NRGBA
-	hlSelected color.NRGBA
-	wrongFlash color.NRGBA
-	userColor  color.NRGBA
-	givenColor color.NRGBA
-	noteColor  color.NRGBA
+	bgWhite     color.NRGBA
+	hlRowCol    color.NRGBA
+	hlSame      color.NRGBA
+	hlSelected  color.NRGBA
+	wrongFlash  color.NRGBA
+	wrongCellBg color.NRGBA // persistent tint for incorrect entries
+	userColor   color.NRGBA
+	givenColor  color.NRGBA
+	noteColor   color.NRGBA
 
 	// current solution/puzzle
 	solution Grid
+
+	// game state
+	gameOver bool
 }
 
 // LabelLike lets us swap a label for richer views later.
@@ -149,6 +153,7 @@ func NewAppState(a fyne.App, w fyne.Window) *AppState {
 	s.hlSame = color.NRGBA{220, 240, 228, 255}
 	s.hlSelected = color.NRGBA{0, 114, 206, 80}
 	s.wrongFlash = color.NRGBA{230, 90, 90, 150}
+	s.wrongCellBg = color.NRGBA{255, 210, 210, 255}
 	s.userColor = color.NRGBA{25, 25, 25, 255}
 	s.givenColor = color.NRGBA{20, 20, 20, 255}
 	s.noteColor = color.NRGBA{50, 50, 60, 255}
@@ -164,13 +169,12 @@ func (s *AppState) Build() fyne.CanvasObject {
 	top := s.makeTopBar()
 	palette := s.makePaletteRow()
 
-	// surfaces
-	topBar := s.bar(color.NRGBA{30, 30, 35, 255}, top)
-	paletteBar := s.bar(color.NRGBA{38, 38, 45, 255}, palette)
+	// Dark theme handles the bar background; just pad the containers.
+	topBar := container.NewPadded(top)
+	paletteBar := container.NewPadded(palette)
 
 	centered := container.NewStack(container.NewCenter(s.boardView), s.pausedLayer)
-	boardPad := s.surface(color.NRGBA{245, 245, 248, 255},
-		container.NewVBox(layout.NewSpacer(), container.NewCenter(centered), layout.NewSpacer()))
+	boardPad := container.NewPadded(container.NewVBox(layout.NewSpacer(), container.NewCenter(centered), layout.NewSpacer()))
 
 	side := container.NewVBox(s.lbView.(fyne.CanvasObject))
 
@@ -184,16 +188,6 @@ func (s *AppState) Build() fyne.CanvasObject {
 /* ===========================
    Bars & helpers
    =========================== */
-
-func (s *AppState) bar(bg color.NRGBA, inner *fyne.Container) *fyne.Container {
-	r := canvas.NewRectangle(bg)
-	r.SetMinSize(fyne.NewSize(0, 44))
-	return container.NewMax(r, container.NewPadded(inner))
-}
-func (s *AppState) surface(bg color.NRGBA, inner *fyne.Container) *fyne.Container {
-	r := canvas.NewRectangle(bg)
-	return container.NewMax(r, container.NewPadded(inner))
-}
 
 func (s *AppState) makeTopBar() *fyne.Container {
 	// difficulty
@@ -213,7 +207,7 @@ func (s *AppState) makeTopBar() *fyne.Container {
 	s.btnPause = widget.NewButton("Pause", func() { s.onPause() })
 	s.btnPause.Importance = widget.HighImportance
 
-	// errors
+	// errors — use canvas.Text so it stays white on the dark bar
 	s.errorsLabel = widget.NewLabel("Errors: 0")
 
 	// hint & notes
@@ -228,6 +222,7 @@ func (s *AppState) makeTopBar() *fyne.Container {
 	btnNew := widget.NewButton("New", func() { s.onNewGame() })
 	btnNew.Importance = widget.HighImportance
 
+	// widget.Label naturally renders white text because the app uses DarkTheme.
 	return container.NewHBox(
 		widget.NewLabel("Difficulty:"), s.diff,
 		widget.NewSeparator(),
@@ -298,7 +293,7 @@ func (s *AppState) buildBoard() {
 
 			s.grid.Add(tc) // add cell first (under notes)
 
-			// notes (absolute board coordinates) — clockwise + center
+			// notes (reading order: 1-3 top row, 4-6 middle, 7-9 bottom, 5=center)
 			nw := wc / 3
 			nh := hc / 3
 			cx := x0 + wc/2 - nw/2
@@ -385,12 +380,12 @@ func (s *AppState) setTheme(name string) {
 	switch name {
 	case "Dark":
 		s.app.Settings().SetTheme(theme.DarkTheme())
-		// dark-ish UI; keep cells white for note legibility
 		s.bgWhite = color.NRGBA{255, 255, 255, 255}
 		s.hlRowCol = color.NRGBA{45, 55, 70, 255}
 		s.hlSame = color.NRGBA{48, 70, 55, 255}
 		s.hlSelected = color.NRGBA{0, 114, 206, 90}
 		s.wrongFlash = color.NRGBA{180, 60, 60, 160}
+		s.wrongCellBg = color.NRGBA{120, 50, 50, 255}
 		s.userColor = color.NRGBA{30, 30, 35, 255}
 		s.givenColor = color.NRGBA{10, 10, 10, 255}
 		s.noteColor = color.NRGBA{40, 40, 45, 255}
@@ -401,11 +396,11 @@ func (s *AppState) setTheme(name string) {
 		s.hlSame = color.NRGBA{225, 245, 230, 255}
 		s.hlSelected = color.NRGBA{0, 114, 206, 70}
 		s.wrongFlash = color.NRGBA{255, 120, 120, 160}
+		s.wrongCellBg = color.NRGBA{255, 210, 210, 255}
 		s.userColor = color.NRGBA{0, 0, 0, 255}
 		s.givenColor = color.NRGBA{30, 30, 30, 255}
 		s.noteColor = color.NRGBA{50, 50, 60, 255}
 	default: // Medium
-		// If you added NewMediumTheme() in theme_custom.go — use it:
 		if nt := NewMediumTheme(); nt != nil {
 			s.app.Settings().SetTheme(nt)
 		} else {
@@ -416,6 +411,7 @@ func (s *AppState) setTheme(name string) {
 		s.hlSame = color.NRGBA{220, 240, 228, 255}
 		s.hlSelected = color.NRGBA{0, 114, 206, 80}
 		s.wrongFlash = color.NRGBA{230, 90, 90, 150}
+		s.wrongCellBg = color.NRGBA{100, 40, 40, 255}
 		s.userColor = color.NRGBA{25, 25, 25, 255}
 		s.givenColor = color.NRGBA{20, 20, 20, 255}
 		s.noteColor = color.NRGBA{50, 50, 60, 255}
@@ -476,7 +472,8 @@ func (s *AppState) onNewGame() {
 	p, solved := MakeUniquePuzzleFast(clues)
 	s.solution = solved
 	s.errorsCount = 0
-	s.errorsLabel.SetText("Errors: 0")
+	s.errorsLabel.SetText("Errors: 0/5")
+	s.gameOver = false
 	s.hintsLeft = 3
 	s.btnHint.SetText("Hint (3)")
 
@@ -511,18 +508,27 @@ func (s *AppState) onNewGame() {
 
 // called by number palette or keyboard
 func (s *AppState) applyNumber(v int) {
-	if s.selected == nil || s.selected.fixed {
+	if s.selected == nil || s.selected.fixed || s.pausedLayer.Visible() || s.gameOver {
 		return
 	}
 	r, c := s.selected.row, s.selected.col
 	if v != s.solution[r][c] {
 		s.errorsCount++
-		s.errorsLabel.SetText("Errors: " + strconv.Itoa(s.errorsCount))
-		s.flashWrong(s.selected)
+		s.errorsLabel.SetText("Errors: " + strconv.Itoa(s.errorsCount) + "/5")
 		s.setCell(s.selected, v, false) // keep wrong entry; delete with 0/backspace
-	} else {
-		s.setCell(s.selected, v, false)
+		s.updatePalette()
+		// flashWrong sets the cell red and schedules refreshHighlights after the delay.
+		// Do NOT call refreshHighlights here — it would overwrite the flash immediately.
+		s.flashWrong(s.selected)
+		if s.errorsCount >= 5 {
+			s.gameOver = true
+			s.stopTimer()
+			dialog.ShowInformation("Game Over",
+				"You made 5 mistakes — game over!\nPress New to start again.", s.win)
+		}
+		return
 	}
+	s.setCell(s.selected, v, false)
 	s.updatePalette()
 	s.refreshHighlights()
 	s.checkComplete()
@@ -620,34 +626,58 @@ func (s *AppState) setCell(cl *UICell, v int, given bool) {
 func (s *AppState) refreshHighlights() {
 	for _, row := range s.cells {
 		for _, cl := range row {
-			cl.bg.FillColor = s.bgWhite
+			// Base: white; persistent red tint for incorrect entries.
+			if cl.value != 0 && !cl.fixed && cl.value != s.solution[cl.row][cl.col] {
+				cl.bg.FillColor = s.wrongCellBg
+			} else {
+				cl.bg.FillColor = s.bgWhite
+			}
 			cl.bg.StrokeColor = color.NRGBA{0, 0, 0, 255}
 			cl.bg.StrokeWidth = 1
 		}
 	}
 	if s.selected != nil {
 		for i := 0; i < size; i++ {
-			s.cells[s.selected.row][i].bg.FillColor = s.hlRowCol
-			s.cells[i][s.selected.col].bg.FillColor = s.hlRowCol
+			rc := s.cells[s.selected.row][i]
+			if rc.value == 0 || rc.fixed || rc.value == s.solution[rc.row][rc.col] {
+				rc.bg.FillColor = s.hlRowCol
+			}
+			cc := s.cells[i][s.selected.col]
+			if cc.value == 0 || cc.fixed || cc.value == s.solution[cc.row][cc.col] {
+				cc.bg.FillColor = s.hlRowCol
+			}
 		}
 		for _, row := range s.cells {
 			for _, cl := range row {
-				if cl.value != 0 && s.selected.value != 0 && cl.value == s.selected.value {
+				isWrong := cl.value != 0 && !cl.fixed && cl.value != s.solution[cl.row][cl.col]
+				if cl.value != 0 && s.selected.value != 0 && cl.value == s.selected.value && !isWrong {
 					cl.bg.FillColor = s.hlSame
 				}
 			}
 		}
-		s.selected.bg.FillColor = s.hlSelected
-		s.selected.bg.StrokeColor = color.NRGBA{0, 114, 206, 255}
-		s.selected.bg.StrokeWidth = 3
+		// If the selected cell itself contains a wrong value, keep it red rather
+		// than overriding it with the blue selection color.
+		selIsWrong := s.selected.value != 0 && !s.selected.fixed &&
+			s.selected.value != s.solution[s.selected.row][s.selected.col]
+		if selIsWrong {
+			s.selected.bg.FillColor = s.wrongCellBg
+			s.selected.bg.StrokeColor = color.NRGBA{200, 50, 50, 255}
+			s.selected.bg.StrokeWidth = 3
+		} else {
+			s.selected.bg.FillColor = s.hlSelected
+			s.selected.bg.StrokeColor = color.NRGBA{0, 114, 206, 255}
+			s.selected.bg.StrokeWidth = 3
+		}
 	}
 	canvas.Refresh(s.grid)
 }
 
 func (s *AppState) flashWrong(cl *UICell) {
 	cl.bg.FillColor = s.wrongFlash
+	cl.bg.StrokeColor = color.NRGBA{200, 50, 50, 255}
+	cl.bg.StrokeWidth = 3
 	canvas.Refresh(s.grid)
-	time.AfterFunc(250*time.Millisecond, func() { s.refreshHighlights() })
+	time.AfterFunc(600*time.Millisecond, func() { s.refreshHighlights() })
 }
 
 func (s *AppState) updatePalette() {
@@ -677,24 +707,6 @@ func (s *AppState) updatePalette() {
 	}
 }
 
-func (s *AppState) updateNoteTexts(cl *UICell) {
-	if cl == nil {
-		return
-	}
-	if !s.notesOn {
-		for i := 1; i <= 9; i++ {
-			if cl.nT[i] != nil {
-				cl.nT[i].Text = ""
-				cl.nT[i].Refresh()
-			}
-		}
-		canvas.Refresh(s.grid)
-		return
-	}
-	// (Optional) auto-candidate logic could go here. For manual toggle via number keys,
-	// main.go can call this after user toggles a note.
-	canvas.Refresh(s.grid)
-}
 
 func (s *AppState) checkComplete() {
 	for r := 0; r < size; r++ {
@@ -827,8 +839,7 @@ func BuildAndRun() {
 		}
 	})
 
-	// default theme + start
-	state.setTheme("Medium")
+	// Start() calls setTheme("Medium") internally — no need to call it twice.
 	state.Start()
 
 	// reasonable default size

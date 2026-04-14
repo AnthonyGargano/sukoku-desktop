@@ -110,7 +110,6 @@ func GenerateSolvedFast() Grid {
 		rows := [9]uint16{}
 		cols := [9]uint16{}
 		boxes := [9]uint16{}
-		choices := [9]int{1, 2, 3, 4, 5, 6, 7, 8, 9}
 		nodes := 0
 
 		var fill func(int, int) bool
@@ -129,6 +128,7 @@ func GenerateSolvedFast() Grid {
 			used := rows[r] | cols[c] | boxes[boxIndex(r, c)]
 			mask := uint16(fullMask) &^ used
 			n := 0
+			var choices [9]int
 			for v := 1; v <= 9; v++ {
 				if mask&(uint16(1)<<v) != 0 {
 					choices[n] = v
@@ -192,7 +192,7 @@ func MakeUniquePuzzleFast(targetClues int) (Grid, Grid) {
 			p[r2][c2] = 0
 		}
 		test := p.Clone()
-		if SolveCountMasked(&test, 1) == 1 {
+		if SolveCountMasked(&test, 2) == 1 {
 			if r2 == r && c2 == c {
 				removed += 1
 			} else {
@@ -206,7 +206,7 @@ func MakeUniquePuzzleFast(targetClues int) (Grid, Grid) {
 	}
 	// final uniqueness check; if failed (too many fails), fall back to legacy removal refinement
 	final := p.Clone()
-	if SolveCountMasked(&final, 1) == 1 {
+	if SolveCountMasked(&final, 2) == 1 {
 		return p, solved
 	}
 	// fallback refinement pass
@@ -223,7 +223,7 @@ func MakeUniquePuzzleFast(targetClues int) (Grid, Grid) {
 		save := p[r][c]
 		p[r][c] = 0
 		test := p.Clone()
-		if SolveCountMasked(&test, 1) != 1 {
+		if SolveCountMasked(&test, 2) != 1 {
 			p[r][c] = save
 		}
 	}
